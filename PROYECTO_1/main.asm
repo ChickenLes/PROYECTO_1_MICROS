@@ -1,69 +1,67 @@
-;-----------------------------------------------
-; Universidad del Valle de Guatemala
-; IE2023: Programacion de Microcontroladores
-; CONTADOR_POSTLAB.asm
-; Autor: ANTHONY ALEJANDRO BOTEO LÓPEZ
-; Proyecto: LABORATORIO_3
-; Hardware: ATMEGA328P
-; Creado: 22/02/2025 
-; Ultima modificacion: 24/02/2025
-; Descripción:
-;-----------------------------------------------
+//-----------------------------------------------
+// UNIVERSIDAD DEL VALLE DE GUATEMALA
+// IE2023: PROGRAMACION DE MICROCONTROLADORES
+// CONTADOR_POSTLAB.ASM
+// AUTOR: ANTHONY ALEJANDRO BOTEO LÓPEZ
+// PROYECTO: LABORATORIO_3
+// HARDWARE: ATMEGA328P
+// CREADO: 22/02/2025 
+// ULTIMA MODIFICACION: 24/02/2025
+// DESCRIPCIÓN:
+//-----------------------------------------------
 
-.include "M328PDEF.inc"
+.INCLUDE "M328PDEF.INC"
 
-//VARIABLES EN LA RAM
-.dseg
-.org			SRAM_START
-USEC:			.byte	1
-DSEC:			.byte	1
-UMIN:			.byte	1
-DMIN:			.byte	1
-UHORA:			.byte	1
-DHORA:			.byte	1
-UDIA:			.byte	1		
-DDIA:			.byte	1
-UMES:			.byte	1
-DMES:			.byte	1
-DHA:			.byte	1	//CONFIGURAR DECENA HORA PARA ALARMA
-UHA:			.byte	1	//CONFIGURAR UNIDAD HORA PARA ALARMA
-DMA:			.byte	1	//CONFIGURAR DECENA DE MIN PARA ALARMA
-UMA:			.byte	1	//CONFIGURAR UNIDAD DE MIN PARA ALARMA
-STATE:			.byte	1	//ESTADO ACTUAL DEL 
-MUESTRA:		.byte	1
-SEL:			.byte	1	//VALOR SELECCIONADO EN DISPLAY
-PARPADEO:		.byte	1
-DESPLAZAMIENTO:	.byte	1
-MOD:			.byte	1
-MODO:			.byte	1
-OPERACION:		.byte	1
-//VARIABLES GLOBALES
-.def	DISPLAY			=  R17	//VALOR DEL DISPLAY
-.def	CONTADOR		=  R18	//CONTADOR OVERFLOW
-.def	CONTADOR2		=  R19
-.def	CONTADOR3		=  R20
-.def	ANTI_REBOTE		=  R21	//ANTI REBOTE
-.def	ESTADO_ACTUAL	=  R22	//ESTADO ACTUAL CONTROLADO POR PIN CHANGE
-.def	PARPADEO_V		=  R23
+// VARIABLES EN LA RAM
+.DSEG
+.ORG				SRAM_START
+USEC:				.byte	1
+DSEC:				.byte	1
+UMIN:				.byte	1
+DMIN:				.byte	1
+UHORA:				.byte	1
+DHORA:				.byte	1
+UDIA:				.byte	1		
+DDIA:				.byte	1
+UMES:				.byte	1
+DMES:				.byte	1
+DHA:				.byte	1	// CONFIGURAR DECENA HORA PARA ALARMA
+UHA:				.byte	1	// CONFIGURAR UNIDAD HORA PARA ALARMA
+DMA:				.byte	1	// CONFIGURAR DECENA DE MIN PARA ALARMA
+UMA:				.byte	1	// CONFIGURAR UNIDAD DE MIN PARA ALARMA
+STATE:				.byte	1	// ESTADO ACTUAL DEL 
+MUESTRA:			.byte	1
+SEL:				.byte	1	// VALOR SELECCIONADO EN DISPLAYDESPLAZAMIENTO:	.byte	1
+MOD:				.byte	1
+MODO:				.byte	1
+OPERACION:			.byte	1
+DESPLAZAMIENTO:		.byte	1
+ACTUALIZAR_FFLAG:	.byte	1
 
+// VARIABLES GLOBALES
+.DEF	DISPLAY			=  R17	// VALOR DEL DISPLAY
+.DEF	CONTADOR		=  R18	// CONTADOR OVERFLOW
+.DEF	CONTADOR2		=  R19
+.DEF	CONTADOR3		=  R20
+.DEF	ANTI_REBOTE		=  R21	// ANTI REBOTE
+.DEF	ESTADO_ACTUAL	=  R22	// ESTADO ACTUAL CONTROLADO POR PIN CHANGE
+.DEF	PARPADEO_V		=  R23
+.DEF	PARPADEO_FLAG	=  R25
 
-
-
-
-.cseg
-.org	0x0000				//VECTOR DE RESET
+.CSEG
+.ORG	0x0000				// VECTOR DE RESET
 		RJMP	SETUP
 
-.org	0x0008				//PIN CHANGE PUERTO C PC0 - PC4
+.ORG	0x0008				// PIN CHANGE PUERTO C PC0 - PC4
 		RJMP	PIN_CHANGE_PINC
 
-.org	0x0012				//VECTOR OVERFLOW TIMER2
+.ORG	0x0012				// VECTOR OVERFLOW TIMER2
 		RJMP	TIMER2_INTER
 
-.org	0x001A				//VECTOR OVERFLOW TIMER1
+.ORG	0x001A				// VECTOR OVERFLOW TIMER1
 		RJMP	TIMER1_INTER	
 
-.org	0x0020				//VECTOR DE OVERFLOW TIMSK0
+.ORG	0x0020				// VECTOR DE OVERFLOW TIMSK0
 		RJMP	TIMER0_INTER
 
 DATA:
@@ -71,58 +69,58 @@ DATA:
 	
 
 SETUP:
-	//PILA
+	// PILA
 	LDI		R16, LOW(RAMEND)
 	OUT		SPL, R16
 	LDI		R16, HIGH(RAMEND)
 	OUT		SPH, R16 
 
-	//CONFIGURANDO SALIDAS
+	// CONFIGURANDO SALIDAS
 	LDI		R16, 0xFF		
-	OUT		DDRD, R16			//PORTD COMO SALIDA
-	OUT		DDRB, R16			//PORTB COMO SALIDA
+	OUT		DDRD, R16			// PORTD COMO SALIDA
+	OUT		DDRB, R16			// PORTB COMO SALIDA
 	LDI		R16, 0x00
-	OUT		PORTD, R16			//PORTD PULL UP DESACTIVADO
-	OUT		PORTB, R16			//PORTB PULL UP DESACTIVADO
+	OUT		PORTD, R16			// PORTD PULL UP DESACTIVADO
+	OUT		PORTB, R16			// PORTB PULL UP DESACTIVADO
 
-	//CONFIGURANDO ENTRADAS
+	// CONFIGURANDO ENTRADAS
 	LDI		R16, 0x20
 	OUT		DDRC, R16
 	LDI		R16, 0x1F
 	OUT		PORTC, R16
 
 
-	//CONFIGURANDO VARIABLES GLOBALES
+	// CONFIGURANDO VARIABLES GLOBALES
 	CLR		DISPLAY
 	CLR		CONTADOR
 	CLR		CONTADOR2
 	CLR		ESTADO_ACTUAL
-	LDI		R16, 0x00           // Cargar el valor 0 en R16
-    STS		MODO, R16           // Inicializar MODO a 0
-    STS     MOD, R16            // Inicializar MOD a 0
-    STS     DESPLAZAMIENTO, R16 // Inicializar DESPLAZAMIENTO a 0
-    STS     OPERACION, R16      // Inicializar OPERACION a 0
-	//SEGUNDOS
+	LDI		R16, 0x00           // CARGAR EL VALOR 0 EN R16
+    STS		MODO, R16           // INICIALIZAR MODO A 0
+    STS     MOD, R16            // INICIALIZAR MOD A 0
+    STS     DESPLAZAMIENTO, R16 // INICIALIZAR DESPLAZAMIENTO A 0
+    STS     OPERACION, R16      // INICIALIZAR OPERACION A 0
+	// SEGUNDOS
 	STS		USEC, R16
 	STS		DSEC, R16
-	//MINUTOS
-	LDI		R16, 9
+	// MINUTOS
+	LDI		R16, 8
 	STS		UMIN, R16
-	LDI		R16, 0
+	LDI		R16, 5
 	STS		DMIN, R16
 
-	//HORAS
+	// HORAS
 	LDI		R16, 0x00
 	STS		SEL, R16
-	STS		PARPADEO, R16
+	CLR		PARPADEO_V
 	STS		MUESTRA, R16
-	LDI		R16, 9
+	LDI		R16, 4
 	STS		UHORA, R16
-	LDI		R16, 1
+	LDI		R16, 2
 	STS		DHORA, R16
 	
 	
-	//MES
+	// MES
 	LDI		R16, 0
 	STS		DDIA, R16
 	STS		DMES, R16
@@ -132,12 +130,16 @@ SETUP:
 	STS		UMES, R16
 	CLR		R16
 
-	//ALARMA
+	// ALARMA
+	LDI		R16, 4
 	STS		UHA, R16
+	LDI		R16, 2
 	STS		DHA, R16
+	LDI		R16, 5
+	STS		DMA, R16
+	LDI		R16, 9
 	STS		UMA, R16
-	STS		UMA, R16
-	//INICIANDO CONFIGURACIÓN TIMER0
+	// INICIANDO CONFIGURACIÓN TIMER0
 	CALL	TIMER0
 	CALL	TIMER1
 	CALL	TIMER2
@@ -148,40 +150,48 @@ MAIN:
 	
 	CALL	MOSTRAR_DISPLAY
 	CALL	CHECK_ALARMA
+	
+	// VERIFICANDO LA FECHA
+	LDS		R16, ACTUALIZAR_FFLAG
+	CPI		R16, 1
+	BRNE	CONTINUAR_MAIN
 
-	
-	
-	
+	CALL	ACTUALIZAR_FECHA
+	CLR		R16
+	STS		ACTUALIZAR_FFLAG, R16
+CONTINUAR_MAIN:
 	RJMP	MAIN
+	
+
 //|-----------------------------------------------------------------------|
 //|																	      |
 //|							CONFIGURACION INTERRUPCIONES				  |
 //|																	      |
 //|-----------------------------------------------------------------------|
 TIMER0:
-	LDI		R16, (1<<CS02) | (1<<CS00) //PRESCALER 1024
-	OUT		TCCR0B, R16				   //ACTIVA EL PRESCALER EN TCCR0B
-	LDI		R16, 0				   //VALOR DESDE DONDE INICIAMOS
-	OUT		TCNT0, R16				   //CARGA EL VALOR A TCNT0 
+	LDI		R16, (1<<CS02) | (1<<CS00) // PRESCALER 1024
+	OUT		TCCR0B, R16				   // ACTIVA EL PRESCALER EN TCCR0B
+	LDI		R16, 0				   // VALOR DESDE DONDE INICIAMOS
+	OUT		TCNT0, R16				   // CARGA EL VALOR A TCNT0 
 	LDI		R16, (1 << TOIE0)
 	STS		TIMSK0, R16
 	RET
 TIMER1:
-	 ; Configurar el Timer1 en modo normal
+	 // CONFIGURAR EL TIMER1 EN MODO NORMAL
     LDI R16, 0x00
-    STS TCCR1A, R16  ; Modo normal (WGM10 = 0, WGM11 = 0)
+    STS TCCR1A, R16  // MODO NORMAL (WGM10 = 0, WGM11 = 0)
 
-    ; Configurar el prescaler = 1024
+    // CONFIGURAR EL PRESCALER = 1024
     LDI R16, (1 << CS12) | (1 << CS10)
     STS TCCR1B, R16
 
-    ; Establecer el valor inicial del Timer1 para 1 segundo
-    LDI R16, HIGH(0xFFFF - 15625)  ; Valor inicial para contar 15,625 ciclos (1 segundo)
+    // ESTABLECER EL VALOR INICIAL DEL TIMER1 PARA 1 SEGUNDO
+    LDI R16, HIGH(0xFFFF - 15625)  // VALOR INICIAL PARA CONTAR 15,625 CICLOS (1 SEGUNDO)
     STS TCNT1H, R16
     LDI R16, LOW(0xFFFF - 15625)
     STS TCNT1L, R16
 
-    ; Habilitar la interrupción por overflow
+    // HABILITAR LA INTERRUPCIÓN POR OVERFLOW
     LDI R16, (1 << TOIE1)
     STS TIMSK1, R16
 
@@ -213,12 +223,12 @@ TIMER0_INTER:
 	IN		R16, SREG
 	PUSH	R16
 
-   //INCREMENTAR CONTADOR DE CONTADOR
-	INC		CONTADOR				//INCREMENTAR EL CONTADOR
-	CPI		CONTADOR, 61			//OVERFLOW = 61, CUANDO CONTADOR LLEGA A 61 Z = 1.
-	BRNE	END_INTER				//SI Z = 0, SALTA. SI Z = 1, NO SALTA.
+   // INCREMENTAR CONTADOR DE CONTADOR
+	INC		CONTADOR				// INCREMENTAR EL CONTADOR
+	CPI		CONTADOR, 61			// OVERFLOW = 61, CUANDO CONTADOR LLEGA A 61 Z = 1.
+	BRNE	END_INTER				// SI Z = 0, SALTA. SI Z = 1, NO SALTA.
 
-	//SETEAR CONTADOR EN 0
+	// SETEAR CONTADOR EN 0
 	CLR		CONTADOR
 
 	LDS		R16, USEC
@@ -249,13 +259,12 @@ END_INTER:
 	RETI
 ///////////////////////////////TIMER1_INTERRUPCION////////////////////////////
 TIMER1_INTER:
+    INC     CONTADOR2
+    CPI     CONTADOR2, 60
+    BRNE    END_INTER2
+    CLR     CONTADOR2
 
-	INC		CONTADOR2
-	CPI		CONTADOR2, 60		//MASCARA COMPRARAR CONTADOR = 14, PASARON 60S
-	BRNE	END_INTER2
-	CLR		CONTADOR2
-
-	//AUMENTAR MINUTOS
+    // INCREMENTAR MINUTOS
     LDS     R16, UMIN
     INC     R16
     CPI     R16, 0x0A
@@ -270,7 +279,7 @@ TIMER1_INTER:
     CLR     R16
     STS     DMIN, R16
 
-    //AUMENTAR HORAS SI MINUTOS LLEGAN A 60
+    // VERIFICAR SI SE DEBE INCREMENTAR HORA
     LDS     R16, UMIN
     CPI     R16, 0x00
     BRNE    END_INTER2
@@ -278,61 +287,60 @@ TIMER1_INTER:
     CPI     R16, 0x00
     BRNE    END_INTER2
 
-	//AUMENTAR UHORA
-	LDS		R16, UHORA
-	INC		R16
-	PUSH	R16			//GUARDAMOS R16, UHORA
-	LDS		R16, DHORA	//OBTENEMOS EL VALOR ACTUAL DE DHORA
-	CPI		R16, 0x02	//COMPARAMOS CON 2 PARA VER SI SON IGUALES
-	BREQ	LIMITE_UHORA	//SI LO SON VAMOS A LIMITE HORA SI NO LO SON POP UHORA
-	POP		R16				
-	CPI		R16, 0x0A		//MASCARA PARA VER SI ESTÁ EN 9 
-	BRNE	STORE_UHORA		//SI NO LO ESTÁ LO ALMACENAMOS Y SI LO ESTA SETEAMOS A 0 R16
-	CLR		R16			
-	STS		UHORA, R16
+    // INCREMENTAR HORA
+    LDS     R16, UHORA
+    INC     R16
+    PUSH    R16
+    LDS     R16, DHORA
+    CPI     R16, 0x02
+    BREQ    LIMITE_UHORA
+    POP     R16
+    CPI     R16, 0x0A
+    BRNE    STORE_UHORA
+    CLR     R16
 
-CONTINUAR_DHORA:
-	LDS		R16, DHORA
-	INC		R16
-	CPI		R16, 0x03 
-	BRNE	STORE_DHORA
-	CLR		R16
-	STS		DHORA, R16
-	STS		UHORA, R16
-	RJMP	LLAMAR_FECHA
-
-LIMITE_UHORA:
-	POP		R16			//REGRESAMOS EL VALOR DE UHORA
-	CPI		R16, 0x05	//COMPARAMOS CON 4
-	BRNE	STORE_UHORA	//SI NO SON IGUALES
-	CLR		R16
-	STS		UHORA, R16
-	RJMP	CONTINUAR_DHORA
-
-LLAMAR_FECHA:
-	
-END_INTER2:
-	LDI			R16, HIGH(0xFFFF - 15625)
-    STS			TCNT1H, R16
-    LDI			R16, LOW(0xFFFF - 15625)
-    STS			TCNT1L, R16
-	RETI
-
-STORE_UMIN:
-    STS			UMIN, R16
-    RJMP		END_INTER2  
-
-STORE_DMIN:
-    STS			DMIN, R16
-    RJMP		END_INTER2
 
 STORE_UHORA:
-    STS			UHORA, R16
-    RJMP		END_INTER2  
+    STS     UHORA, R16
+    RJMP    CONTINUAR_DHORA
+
+LIMITE_UHORA:
+    POP     R16
+    CPI     R16, 0x05
+    BRNE    STORE_UHORA
+    CLR     R16
+    STS     UHORA, R16
+
+CONTINUAR_DHORA:
+    LDS     R16, DHORA
+    INC     R16
+    CPI     R16, 0x03
+    BRNE    STORE_DHORA
+    CLR     R16
+    STS     DHORA, R16
+    STS     UHORA, R16
+	// --- HORA LLEGÓ A 24:00, RESETEAR A 00:00 Y ACTIVAR FLAG ---
+ 
+    LDI     R16, 1
+    STS     ACTUALIZAR_FFLAG, R16  // ACTIVAR FLAG
+END_INTER2:
+    LDI     R16, HIGH(0xFFFF - 15625)
+    STS     TCNT1H, R16
+    LDI     R16, LOW(0xFFFF - 15625)
+    STS     TCNT1L, R16
+    RETI
+
+STORE_UMIN:
+    STS     UMIN, R16
+    RJMP    END_INTER2  
+
+STORE_DMIN:
+    STS     DMIN, R16
+    RJMP    END_INTER2
 
 STORE_DHORA:
-    STS			DHORA, R16
-
+    STS     DHORA, R16
+    RJMP    END_INTER2
 
 
 //////////////////////////////TIMER2 INTERRUPCIÓN/////////////////////////////
@@ -342,27 +350,21 @@ TIMER2_INTER:
     IN		R16, SREG
     PUSH	R16
 
-    // Verificar si estamos en modo de configuración (2, 3 o 4)
-    LDS		R17, MODO
-    CPI		R17, 2
-    BREQ	PARPADEO_ACTIVO
-    CPI		R17, 3
-    BREQ	PARPADEO_ACTIVO
-    CPI		R17, 4
-    BRNE	NO_PARPADEO
-
-PARPADEO_ACTIVO:
-    // Incrementar contador de parpadeo
+   
 	
     INC		CONTADOR3
-    CPI		CONTADOR3, 30		// 30 ciclos para cumplir 500 ms
-    BRNE	NO_PARPADEO
+    CPI		CONTADOR3, 30		// 30 CICLOS PARA CUMPLIR 500 MS
+    BRNE	EXIT_TIMER2INTER
     CLR		CONTADOR3
-    LDS		R17, PARPADEO
-    COM		R17			// Alternar estado de parpadeo
-    STS		PARPADEO, R17
+    INC		PARPADEO_V
+	CPI		PARPADEO_V, 50
+	BRNE	EXIT_TIMER2INTER
+	CLR		PARPADEO_V
 
-NO_PARPADEO:
+	LDI		R16,1
+	EOR		PARPADEO_FLAG, R16
+    
+EXIT_TIMER2INTER:
 
     POP		R16
     OUT		SREG, R16
@@ -380,25 +382,19 @@ PIN_CHANGE_PINC:
     PUSH    R18
     PUSH    R19
 
-    ; Leer estado actual de PINC
+    // LEER ESTADO ACTUAL DE PINC
     IN      R16, PINC
 
 
-    ; Manejar PC0 (Cambiar modo)
+    // MANEJAR PC0 (CAMBIAR MODO)
     SBIC    PINC, PC0
     RJMP    CHECK_PC1
 
     LDS     R17, MODO
     CPI		R17, 5
 	BRNE	INC_MODO
-	SBIC	PORTC, 5
-	RJMP	FIN_ISR
 	CBI		PORTC, 5
-	CLR		R16
-	STS		DHA, R16
-	STS		UHA, R16
-	STS		DMA, R16
-	STS		UMA, R16
+
 INC_MODO:
 	LDS		R17, MODO
 	INC     R17
@@ -409,7 +405,7 @@ GUARDAR_MODO:
     STS     MODO, R17
 
 CHECK_PC1:
-    ; Decrementar SEL
+    // DECREMENTAR SEL
     SBIC    PINC, PC1
     RJMP    CHECK_PC2
     LDS     R17, SEL
@@ -418,7 +414,7 @@ CHECK_PC1:
     STS     SEL, R17
 
 CHECK_PC2:
-    ; Incrementar SEL
+    // INCREMENTAR SEL
     SBIC    PINC, PC2
     RJMP    CHECK_PC3
     LDS     R17, SEL
@@ -427,16 +423,17 @@ CHECK_PC2:
     STS     SEL, R17
 
 CHECK_PC3:
-    ; Decrementar valor
+    // DECREMENTAR VALOR
     SBIC    PINC, PC3
     RJMP    CHECK_PC4
     RCALL   DECREMENTAR_VALOR
 
 CHECK_PC4:
-    ; Incrementar valor
+    // INCREMENTAR VALOR
     SBIC    PINC, PC4
     RJMP    FIN_ISR
     RCALL   INCREMENTAR_VALOR
+
 
 FIN_ISR:
     POP     R19
@@ -447,7 +444,7 @@ FIN_ISR:
     POP     R16
     RETI
 
-; ================== SUBRUTINAS DE DECREMENTO ==================
+// ================== SUBRUTINAS DE DECREMENTO ==================
 DECREMENTAR_VALOR:
     LDS     R18, MODO
     CPI     R18, 2
@@ -476,7 +473,7 @@ DEC_DHORA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DHORA_MAX
-    LDI     R16, 2              ; Límite máximo para decenas de hora
+    LDI     R16, 2              // LÍMITE MÁXIMO PARA DECENAS DE HORA
 CHECK_DHORA_MAX:
     STS     DHORA, R16
     RET
@@ -486,14 +483,14 @@ DEC_UHORA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UHORA_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de hora
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE HORA
 CHECK_UHORA_MAX:
     LDS     R18, DHORA
     CPI     R18, 2
     BRNE    GUARDAR_UHORA
-    CPI     R16, 4
+    CPI     R16, 5
     BRLO    GUARDAR_UHORA
-    LDI     R16, 4              ; Si DHORA=2, UHORA máximo = 3
+    LDI     R16, 4              // SI DHORA=2, UHORA MÁXIMO = 4
 GUARDAR_UHORA:
     STS     UHORA, R16
     RET
@@ -503,7 +500,7 @@ DEC_DMIN:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DMIN_MAX
-    LDI     R16, 5              ; Límite máximo para decenas de minutos
+    LDI     R16, 5              // LÍMITE MÁXIMO PARA DECENAS DE MINUTOS
 CHECK_DMIN_MAX:
     STS     DMIN, R16
     RET
@@ -513,7 +510,7 @@ DEC_UMIN:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UMIN_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de minutos
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE MINUTOS
 CHECK_UMIN_MAX:
     STS     UMIN, R16
     RET
@@ -535,7 +532,7 @@ DEC_DDIA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DDIA_MAX
-    LDI     R16, 3              ; Límite máximo para decenas de día
+    LDI     R16, 3              // LÍMITE MÁXIMO PARA DECENAS DE DÍA
 CHECK_DDIA_MAX:
     STS     DDIA, R16
     RET
@@ -545,14 +542,14 @@ DEC_UDIA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UDIA_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de día
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE DÍA
 CHECK_UDIA_MAX:
     LDS     R18, DDIA
     CPI     R18, 3
     BRNE    GUARDAR_UDIA
     CPI     R16, 1
     BRLO    GUARDAR_UDIA
-    LDI     R16, 0              ; Si DDIA=3, UDIA máximo = 0
+    LDI     R16, 0              // SI DDIA=3, UDIA MÁXIMO = 0
 GUARDAR_UDIA:
     STS     UDIA, R16
     RET
@@ -562,7 +559,7 @@ DEC_DMES:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DMES_MAX
-    LDI     R16, 1              ; Límite máximo para decenas de mes
+    LDI     R16, 1              // LÍMITE MÁXIMO PARA DECENAS DE MES
 CHECK_DMES_MAX:
     STS     DMES, R16
     RET
@@ -572,14 +569,14 @@ DEC_UMES:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UMES_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de mes
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE MES
 CHECK_UMES_MAX:
     LDS     R18, DMES
     CPI     R18, 1
     BRNE    GUARDAR_UMES
     CPI     R16, 2
     BRLO    GUARDAR_UMES
-    LDI     R16, 1              ; Si DMES=1, UMES máximo = 2 (12 meses)
+    LDI     R16, 1              // SI DMES=1, UMES MÁXIMO = 2 (12 MESES)
 GUARDAR_UMES:
     STS     UMES, R16
     RET
@@ -601,7 +598,7 @@ DEC_DHA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DHA_MAX
-    LDI     R16, 2              ; Límite máximo para decenas de hora alarma
+    LDI     R16, 2              // LÍMITE MÁXIMO PARA DECENAS DE HORA ALARMA
 CHECK_DHA_MAX:
     STS     DHA, R16
     RET
@@ -611,14 +608,14 @@ DEC_UHA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UHA_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de hora alarma
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE HORA ALARMA
 CHECK_UHA_MAX:
     LDS     R18, DHA
     CPI     R18, 2
     BRNE    GUARDAR_UHA
     CPI     R16, 4
     BRLO    GUARDAR_UHA
-    LDI     R16, 3              ; Si DHA=2, UHA máximo = 3
+    LDI     R16, 3              // SI DHA=2, UHA MÁXIMO = 3
 GUARDAR_UHA:
     STS     UHA, R16
     RET
@@ -628,7 +625,7 @@ DEC_DMA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_DMA_MAX
-    LDI     R16, 5              ; Límite máximo para decenas de minuto alarma
+    LDI     R16, 5              // LÍMITE MÁXIMO PARA DECENAS DE MINUTO ALARMA
 CHECK_DMA_MAX:
     STS     DMA, R16
     RET
@@ -638,12 +635,12 @@ DEC_UMA:
     DEC     R16
     CPI     R16, 0xFF
     BRNE    CHECK_UMA_MAX
-    LDI     R16, 9              ; Límite máximo para unidades de minuto alarma
+    LDI     R16, 9              // LÍMITE MÁXIMO PARA UNIDADES DE MINUTO ALARMA
 CHECK_UMA_MAX:
     STS     UMA, R16
     RET
 
-; ================== SUBRUTINAS DE INCREMENTO ==================
+// ================== SUBRUTINAS DE INCREMENTO ==================
 INCREMENTAR_VALOR:
     LDS     R18, MODO
     CPI     R18, 2
@@ -842,35 +839,186 @@ INC_UMA:
 GUARDAR_UMA_INC:
     STS     UMA, R16
     RET
-
+//|-----------------------------------------------------------------------|
+//|																	      |
+//|					 VERIFICAR SI LA ALARMA DEBE SONAR				      |
+//|																	      |
+//|-----------------------------------------------------------------------|	
 CHECK_ALARMA:
-
 	LDS		R16, DHORA
 	LDS		R24, DHA
-	CP		R16, R17
+	CP		R16, R24
 	BRNE	APAGAR_BUZZER
 
 	LDS		R16, UHORA
 	LDS		R24, UHA
-	CP		R16, R17
+	CP		R16, R24
 	BRNE	APAGAR_BUZZER
 
 	LDS		R16, DMIN
 	LDS		R24, DMA
-	CP		R16, R17
+	CP		R16, R24
 	BRNE	APAGAR_BUZZER
 
 	LDS		R16, UMIN
 	LDS		R24, UMA
-	CP		R16, R17
+	CP		R16, R24
 	BRNE	APAGAR_BUZZER
 
-	SBI		PORTC, PC5
+	SBI		PORTC, 5
+
 	RJMP	FIN_ALARMA
 APAGAR_BUZZER:
 	CBI		PORTC, PC5
 FIN_ALARMA:
 	RET
+
+//|-----------------------------------------------------------------------|
+//|																	      |
+//|						ACTUALIZAR FECHA EN BASE A LA HORA                |
+//|																	      |
+//|-----------------------------------------------------------------------|	
+ACTUALIZAR_FECHA:
+    PUSH    R16
+    PUSH    R17
+    PUSH    R18
+    PUSH    R19
+
+    // --- INCREMENTAR DÍA ---
+    LDS     R16, UDIA        // UNIDADES DE DÍA
+    INC     R16
+    CPI     R16, 10          // ¿LLEGÓ A 10?
+    BRNE    SAVE_UDIA        // SI NO, GUARDAR Y CONTINUAR
+
+    // RESETEAR UNIDADES DE DÍA E INCREMENTAR DECENAS
+    CLR     R16
+    LDS     R17, DDIA        // DECENAS DE DÍA
+    INC     R17
+    CPI     R17, 4           // ¿LLEGÓ A 3 (DÍA 31)?
+    BRLO    SAVE_DDIA        // SI NO, GUARDAR Y CONTINUAR
+
+    // RESETEAR DÍA A 01
+    CLR     R17
+    LDI     R16, 1
+
+SAVE_DDIA:
+    STS     DDIA, R17        // GUARDAR DECENAS DE DÍA
+
+SAVE_UDIA:
+   
+    // --- V STS     UDIA, R16        // GUARDAR UNIDADES DE DÍAERIFICAR SI SE DEBE INCREMENTAR EL MES ---
+    // OBTENER MES ACTUAL (DMES Y UMES)
+    LDS     R18, DMES        // DECENAS DE MES
+    LDS     R19, UMES        // UNIDADES DE MES
+    MOV     R16, R18
+    LDI     R17, 10
+    MUL     R16, R17         // R0 = DMES * 10
+    ADD     R0, R19          // R0 = MES (1-12)
+    MOV     R16, R0
+
+    // OBTENER DÍA ACTUAL (DDIA Y UDIA)
+    LDS     R18, DDIA        // DECENAS DE DÍA
+    LDS     R19, UDIA        // UNIDADES DE DÍA
+
+    // --- DETERMINAR DÍAS POR MES ---
+    // FEBRERO (MES 2) = 28 DÍAS
+    CPI     R16, 2           // ¿ES FEBRERO?
+    BRNE    MES_30_DIAS      // SI NO, VERIFICAR MESES DE 30 DÍAS
+
+    // VERIFICAR SI EL DÍA ES MAYOR A 28
+    CPI     R18, 2           // ¿DDIA = 2?
+    BRNE    CHECK_FEB_DDIA   // SI NO, VERIFICAR UDIA
+    CPI     R19, 9           // ¿UDIA = 9? (DÍA 29)
+    BRLO    FIN_ACTUALIZAR   // SI UDIA < 9, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+FIN_ACTUALIZAR:
+    POP     R19
+    POP     R18
+    POP     R17
+    POP     R16
+    RET
+
+CHECK_FEB_DDIA:
+    CPI     R18, 3           // ¿DDIA = 3? (DÍA 30 O 31)
+    BRLO    FIN_ACTUALIZAR   // SI DDIA < 3, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+MES_30_DIAS:
+    // ABRIL(4), JUNIO(6), SEPTIEMBRE(9), NOVIEMBRE(11)
+    CPI     R16, 4
+    BREQ    VERIFICAR_30
+    CPI     R16, 6
+    BREQ    VERIFICAR_30
+    CPI     R16, 9
+    BREQ    VERIFICAR_30
+    CPI     R16, 11
+    BRNE    MES_31_DIAS      // SI NO, ES UN MES DE 31 DÍAS
+
+VERIFICAR_30:
+    // VERIFICAR SI EL DÍA ES MAYOR A 30
+    CPI     R18, 3           // ¿DDIA = 3?
+    BRNE    CHECK_30_DDIA    // SI NO, VERIFICAR UDIA
+    CPI     R19, 1           // ¿UDIA = 1? (DÍA 31)
+    BRLO    FIN_ACTUALIZAR   // SI UDIA < 1, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+CHECK_30_DDIA:
+    CPI     R18, 3           // ¿DDIA = 3? (DÍA 30 O 31)
+    BRLO    FIN_ACTUALIZAR   // SI DDIA < 3, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+MES_31_DIAS:
+    // VERIFICAR SI EL DÍA ES MAYOR A 31
+    CPI     R18, 3           // ¿DDIA = 3?
+    BRNE    CHECK_31_DDIA    // SI NO, VERIFICAR UDIA
+    CPI     R19, 2           // ¿UDIA = 2? (DÍA 32)
+    BRLO    FIN_ACTUALIZAR   // SI UDIA < 2, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+CHECK_31_DDIA:
+    CPI     R18, 3           // ¿DDIA = 3? (DÍA 30 O 31)
+    BRLO    FIN_ACTUALIZAR   // SI DDIA < 3, TODO BIEN
+    RJMP    RESETEAR_DIA     // SI NO, RESETEAR DÍA A 01
+
+RESETEAR_DIA:
+    // RESETEAR DÍA A 01
+    CLR     R16
+    STS     DDIA, R16
+    LDI     R16, 1
+    STS     UDIA, R16
+
+    // --- INCREMENTAR MES ---
+    LDS     R16, UMES
+    INC     R16
+    CPI     R16, 10
+    BRNE    SAVE_UMES
+    CLR     R16
+    LDS     R17, DMES
+    INC     R17
+    CPI     R17, 2           // ¿LLEGÓ A 1 (MES 12)?
+    BRLO    SAVE_DMES
+    CLR     R17
+
+SAVE_DMES:
+    STS     DMES, R17
+
+SAVE_UMES:
+    STS     UMES, R16
+
+    // --- VERIFICAR SI MES >12 ---
+    LDS     R16, DMES
+    CPI     R16, 1
+    BRNE    FIN_ACTUALIZAR
+    LDS     R16, UMES
+    CPI     R16, 2
+    BRLO    FIN_ACTUALIZAR
+    // RESETEAR MES A 01
+    CLR     R16
+    STS     DMES, R16
+    LDI     R16, 1
+    STS     UMES, R16
+	RJMP	FIN_ACTUALIZAR
 
 
 //|-----------------------------------------------------------------------|
@@ -904,103 +1052,129 @@ SUBCONFIGURAR_ALARMA_DISPLAY:
 	RJMP	CONFIGURAR_ALARMA_DISPLAY
 
 CONFIGURAR_HORA_DISPLAY:
-    LDS		R16, SEL
-    CPI		R16, 0
-    BREQ	PARPADEO_DHORA
-    CPI		R16, 1
-    BREQ	PARPADEO_UHORA
-    CPI		R16, 2
-    BREQ	PARPADEO_DMIN
-    CPI		R16, 3
-    BREQ	PARPADEO_UMIN
-    RJMP	MOSTRAR_HORA
-
+    LDS     R16, SEL
+    CPI     R16, 0
+    BREQ    PARPADEO_DHORA
+    CPI     R16, 1
+    BREQ    PARPADEO_UHORA
+    CPI     R16, 2
+    BREQ    PARPADEO_DMIN
+    CPI     R16, 3
+    BREQ    PARPADEO_UMIN
+    RJMP    MOSTRAR_HORA
+SUBMOSTRAR_HORA:
+	RJMP	MOSTRAR_HORA
 PARPADEO_DHORA:
-    LDS		PARPADEO_V, PARPADEO
-    CPI		PARPADEO_V, 0
-    BREQ	APAGAR_DHORA
-    RJMP	MOSTRAR_HORA
-
-APAGAR_DHORA:
-    CBI		PORTB, 3	// Apagar display de DHORA
-    RJMP	MOSTRAR_HORA
+    
+    CPI     PARPADEO_V, 25        ; Si PARPADEO_V < 25, mostrar dígito
+    BRNE    SUBMOSTRAR_HORA    ; Si no, apagar
+    CBI     PORTB, 3        ; Apagar decenas de hora
+    RJMP    MOSTRAR_HORA
 
 PARPADEO_UHORA:
-    LDS		PARPADEO_V, PARPADEO
-    CPI		PARPADEO_V, 0
-    BREQ	APAGAR_UHORA
-    RJMP	MOSTRAR_HORA
-
-APAGAR_UHORA:
-    CBI		PORTB, 2	// Apagar display de UHORA
-    RJMP	MOSTRAR_HORA
+ 
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_HORA
+    CBI     PORTB, 2        ; Apagar unidades de hora
+    RJMP    MOSTRAR_HORA
 
 PARPADEO_DMIN:
-    LDS		PARPADEO_V, PARPADEO
-    CPI		PARPADEO_V, 0
-    BREQ	APAGAR_DMIN
-    RJMP	MOSTRAR_HORA
-
-APAGAR_DMIN:
-    CBI		PORTB, 1	// Apagar display de DMIN
-    RJMP	MOSTRAR_HORA
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_HORA
+    CBI     PORTB, 1        ; Apagar decenas de minuto
+    RJMP    MOSTRAR_HORA
 
 PARPADEO_UMIN:
-    LDS		PARPADEO_V, PARPADEO
-    CPI		PARPADEO_V, 0
-    BREQ	APAGAR_UMIN
-    RJMP	MOSTRAR_HORA
-
-APAGAR_UMIN:
-    CBI		PORTB, 0	// Apagar display de UMIN
-    RJMP	MOSTRAR_HORA
+    
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_HORA
+    CBI     PORTB, 0        ; Apagar unidades de minuto
+    RJMP    MOSTRAR_HORA
 
 CONFIGURAR_FECHA_DISPLAY:
-	LDS		R16, SEL
-	CPI		R16, 0
-	BREQ	PARPADEO_DDIA
-	CPI		R16, 1
-	BREQ	PARPADEO_UDIA
-	CPI		R16, 2
-	BREQ	PARPADEO_DMES
-	CPI		R16, 3
-	BREQ	PARPADEO_UMES
-	RJMP	MOSTRAR_FECHA
+    LDS     R16, SEL
+    CPI     R16, 0
+    BREQ    PARPADEO_DDIA
+    CPI     R16, 1
+    BREQ    PARPADEO_UDIA
+    CPI     R16, 2
+    BREQ    PARPADEO_DMES
+    CPI     R16, 3
+    BREQ    PARPADEO_UMES
+    RJMP    MOSTRAR_FECHA
 
+SUBMOSTRAR_FECHA:
+	RJMP	MOSTRAR_FECHA
 PARPADEO_DDIA:
-	LDS		PARPADEO_V, PARPADEO
-	CPI		PARPADEO_V, 0
-	BREQ	APAGAR_DDIA
-	RJMP	MOSTRAR_FECHA
-APAGAR_DDIA:
-	CBI		PORTB, 3
-	RJMP	MOSTRAR_FECHA
+  
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_FECHA
+    CBI     PORTB, 3        ; Apagar decenas de día
+    RJMP    MOSTRAR_FECHA
 
 PARPADEO_UDIA:
-	LDS		PARPADEO_V, PARPADEO
-	CPI		PARPADEO_V, 0
-	BREQ	APAGAR_DDIA
-	RJMP	MOSTRAR_FECHA
-APAGAR_UDIA:
-	CBI		PORTB, 2
-	RJMP	MOSTRAR_FECHA
-PARPADEO_DMES:
-	LDS		PARPADEO_V, PARPADEO
-	CPI		PARPADEO_V, 0
-	BREQ	APAGAR_UDIA
-	RJMP	MOSTRAR_FECHA
-APAGAR_DMES:
-	CBI		PORTB, 1
-	RJMP	MOSTRAR_FECHA
-PARPADEO_UMES:
-	LDS		PARPADEO_V, PARPADEO
-	CPI		PARPADEO_V, 0
-	BREQ	APAGAR_DMES
-	RJMP	MOSTRAR_FECHA
-APAGAR_UMES:
-	CBI		PORTB, 0
-	RJMP	MOSTRAR_FECHA
+   
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_FECHA
+    CBI     PORTB, 2        ; Apagar unidades de día
+    RJMP    MOSTRAR_FECHA
 
+PARPADEO_DMES:
+   
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_FECHA
+    CBI     PORTB, 1        ; Apagar decenas de mes
+    RJMP    MOSTRAR_FECHA
+
+PARPADEO_UMES:
+    
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_FECHA
+    CBI     PORTB, 0        ; Apagar unidades de mes
+    RJMP    MOSTRAR_FECHA
+;-----------------------------------------------
+; CONFIGURAR_ALARMA_DISPLAY - Parpadeo con PARPADEO_V
+;-----------------------------------------------
+CONFIGURAR_ALARMA_DISPLAY:
+    LDS     R16, SEL
+    CPI     R16, 0
+    BREQ    PARPADEO_DHA
+    CPI     R16, 1
+    BREQ    PARPADEO_UHA
+    CPI     R16, 2
+    BREQ    PARPADEO_DMA
+    CPI     R16, 3
+    BREQ    PARPADEO_UMA
+    RJMP    MOSTRAR_ALARMA
+SUBMOSTRAR_ALARMA:
+	RJMP	MOSTRAR_ALARMA
+PARPADEO_DHA:
+    
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_ALARMA
+    CBI     PORTB, 3        ; Apagar decenas de hora alarma
+    RJMP    MOSTRAR_ALARMA
+
+PARPADEO_UHA:
+    
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_ALARMA
+    CBI     PORTB, 2        ; Apagar unidades de hora alarma
+    RJMP    MOSTRAR_ALARMA
+
+PARPADEO_DMA:
+    
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_ALARMA
+    CBI     PORTB, 1        ; Apagar decenas de minuto alarma
+    RJMP    MOSTRAR_ALARMA
+
+PARPADEO_UMA:
+   
+    CPI     PARPADEO_V, 25
+    BRNE    SUBMOSTRAR_ALARMA
+    CBI     PORTB, 0        ; Apagar unidades de minuto alarma
+    RJMP    MOSTRAR_ALARMA
 
 MOSTRAR_HORA:
     // MOSTRAR LOS MINUTOS UNIDADES
@@ -1111,7 +1285,7 @@ MOSTRAR_FECHA:
     CALL	DELAY
 
     RET
-CONFIGURAR_ALARMA_DISPLAY:
+CONF_ALARMA_DISPLAY:
 	// MOSTRAR LOS MINUTOS UNIDADES
     LDS		R16, UMA
     MOV		DISPLAY, R16
